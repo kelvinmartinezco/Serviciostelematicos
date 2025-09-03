@@ -1,1 +1,38 @@
+SCRITPS PARTE 3
 
+# Verificar que tu servidor web funciona en local
+systemctl status apache2
+
+# Verifiquemos en el navegador:
+http://192.168.50.3
+
+# Crear página personalizada
+cd /var/www/html
+sudo vim /var/www/html/index.html
+Agregar contenido al archivo:
+<html>
+<head>
+    <title>Servidor Maestro</title>
+</head>
+<body>
+    <h1>Servidor Maestro funcionando con Ngrok 🚀</h1>
+    <p>Acceso remoto exitoso.</p>
+</body>
+</html>
+
+# Instalar y configurar Ngrok
+wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip
+unzip ngrok-stable-linux-amd64.zip
+sudo mv ngrok /usr/local/bin/
+
+# Me registro en ngrok.com y me dio este authtoken
+ngrok config add-authtoken 32AHLznqbr88rwMuVoq404tTCdD_89PEi2Z92RBEe49eHRXzP
+
+# Crear túnel con Ngrok
+ngrok http 80
+
+# me genero esta URL
+https://6c89bebafc2d.ngrok-free.app
+
+#prueba con curl en consola
+curl https://6c89bebafc2d.ngrok-free.app
