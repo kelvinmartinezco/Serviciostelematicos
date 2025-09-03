@@ -1,1 +1,145 @@
-Scripts Parte 1
+SCRIPTS PARTE 1
+
+# Instalar dependencias necesarias
+sudo apt update -y
+sudo apt install -y apache2 libapache2-mod-authnz-pam
+
+# Crear directorio protegido
+sudo mkdir /var/www/html/archivos_privados
+
+# Configurar el VirtualHost de Apache
+sudo vim /etc/apache2/sites-available/000-default.conf
+Se agrega lo siguiente:
+<Directory "/var/www/html/archivos_privados">
+    AuthType Basic
+    AuthName "Zona Privada"
+    AuthBasicProvider PAM
+    AuthPAMService apache
+    Require valid-user
+</Directory>
+
+# Configurar PAM
+sudo vim /etc/pam.d/apache
+Se agrega lo siguiente:
+auth    required pam_listfile.so item=user sense=deny file=/etc/denied_users onerr=succeed
+auth    required pam_unix.so nullok
+account required pam_unix.so
+session required pam_unix.so
+
+# Habilitar el módulo PAM en Apache
+sudo a2enmod authnz_pam
+
+# Crrar lista usuarios bloqueados
+echo "usuario1" | sudo tee -a /etc/denied_users
+echo "usuario2" | sudo tee -a /etc/denied_users
+echo "usuario3" | sudo tee -a /etc/denied_users
+echo "denegado" | sudo tee -a /etc/denied_users
+
+# Crear usuario con acceso
+sudo adduser permitido
+clave: 12345
+
+# Reiniciar Apache
+sudo systemctl restart apache2
+
+# Probar desde consola con curl (Usuario con acceso)
+curl -u permitido:12345 http://192.168.50.3/archivos_privados/
+
+# Crear pagina de bienvenida
+sudo vim /var/www/html/archivos_privados/index.html
+Contenido del archivo:
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Zona Privada</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .box {
+            text-align: center;
+            padding: 40px;
+            border: 2px solid #00ff88;
+            border-radius: 15px;
+            background-color: #1e1e1e;
+            box-shadow: 0px 0px 20px rgba(0, 255, 136, 0.5);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+        p {
+            font-size: 1.2em;
+            color: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔒 Bienvenido al Área Privada</h1>
+        <p>Has ingresado correctamente con tus credenciales.</p>
+    </div>
+</body>
+</html>
+
+
+
+# Probar desde consola con curl (Usuario sin acceso)
+curl -u denegado:12345 http://192.168.50.3/archivos_privados
+
+# Crear página personalizada de error
+sudo vim /var/www/html/error401.html
+Contenido del archivo:
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acceso Denegado</title>
+    <style>
+        body {
+            background-color: #2c0000;
+            color: #ffdddd;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .box {
+            text-align: center;
+            padding: 40px;
+            border: 2px solid #ff4444;
+            border-radius: 15px;
+            background-color: #400000;
+            box-shadow: 0px 0px 20px rgba(255, 0, 0, 0.6);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #ff4444;
+        }
+        p {
+            font-size: 1.2em;
+            color: #ffcccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🚫 Acceso Denegado</h1>
+        <p>No tienes permisos para ingresar a esta área privada.</p>
+    </div>
+</body>
+</html>
+
+
