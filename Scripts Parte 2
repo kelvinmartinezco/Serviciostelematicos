@@ -1,0 +1,139 @@
+SCRIPTS PARTE 2
+
+# Crear un maquina servidor-esclavo desde VagrantFile
+Vagrant.configure("2") do |config|
+
+  # Servidor Maestro
+  config.vm.define :servidor do |servidor|
+    servidor.vm.box = "bento/ubuntu-22.04"
+    servidor.vm.network :private_network, ip: "192.168.50.3"
+    servidor.vm.hostname = "servidor-maestro"
+  end
+
+  # Servidor Esclavo
+  config.vm.define :esclavo do |esclavo|
+    esclavo.vm.box = "bento/ubuntu-22.04"
+    esclavo.vm.network :private_network, ip: "192.168.50.4"
+    esclavo.vm.hostname = "servidor-esclavo"
+  end
+
+  # Cliente
+  config.vm.define :cliente do |cliente|
+    cliente.vm.box = "bento/ubuntu-22.04"
+    cliente.vm.network :private_network, ip: "192.168.50.2"
+    cliente.vm.hostname = "cliente"
+  end
+
+end
+
+# Instalar Bind9 en maestro y esclavo
+sudo apt update
+sudo apt install bind9 bind9utils bind9-doc -y
+
+# Configuración del Servidor Maestro (192.168.50.3)
+sudo vim /etc/bind/named.conf.local
+agregamos las siguientes zoanas en el archivo:
+// Zona directa
+zone "empresa.local" {
+    type master;
+    file "/etc/bind/db.empresa.local";
+    allow-transfer { 192.168.50.4; };   // Solo permitir transferencias al esclavo
+};
+
+// Zona inversa
+zone "50.168.192.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.192.168.50";
+    allow-transfer { 192.168.50.4; };
+};
+
+# Crear el archivo de zona directa
+sudo cp /etc/bind/db.local /etc/bind/db.empresa.local
+sudo vim /etc/bind/db.empresa.local
+modificar el contenido: 
+$TTL    604800
+@       IN      SOA     maestro.empresa.local. admin.empresa.local. (
+                        2         ; Serial
+                        604800    ; Refresh
+                        86400     ; Retry
+                        2419200   ; Expire
+                        604800 )  ; Negative Cache TTL
+
+; Servidores DNS
+@       IN      NS      maestro.empresa.local.
+@       IN      NS      esclavo.empresa.local.
+
+; Registros A
+maestro IN      A       192.168.50.3
+esclavo IN      A       192.168.50.4
+cliente IN      A       192.168.50.2
+
+; Registro CNAME
+www     IN      CNAME   maestro.empresa.local.
+ftp     IN      CNAME   maestro.empresa.local.
+
+# Crear el archivo de zona inversa
+sudo cp /etc/bind/db.127 /etc/bind/db.192.168.50
+sudo vim /etc/bind/db.192.168.50
+$TTL    604800
+@       IN      SOA     maestro.empresa.local. admin.empresa.local. (
+                        2         ; Serial
+                        604800    ; Refresh
+                        86400     ; Retry
+                        2419200   ; Expire
+                        604800 )  ; Negative Cache TTL
+
+; Servidores DNS
+@       IN      NS      maestro.empresa.local.
+@       IN      NS      esclavo.empresa.local.
+
+; Registros PTR
+3       IN      PTR     maestro.empresa.local.
+4       IN      PTR     esclavo.empresa.local.
+2       IN      PTR     cliente.empresa.local.
+
+# Reiniciar el servicio
+sudo systemctl restart bind9
+sudo systemctl status bind9
+
+# Configuración del Servidor Esclavo (192.168.50.4)
+sudo vim /etc/bind/named.conf.local
+// Zona directa (empresa.local)
+zone "empresa.local" {
+    type slave;
+    masters { 192.168.50.3; };   // Maestro
+    file "/var/cache/bind/empresa.local";
+};
+
+// Zona inversa (50.168.192.in-addr.arpa)
+zone "50.168.192.in-addr.arpa" {
+    type slave;
+    masters { 192.168.50.3; };   // Maestro
+    file "/var/cache/bind/192.168.50";
+};
+
+# Reiniciar el servicio
+sudo systemctl restart bind9
+sudo systemctl status bind9
+
+# Resolución desde el cliente (192.168.50.2)
+sudo vim /etc/resolv.conf
+le ponemos:
+nameserver 192.168.50.4
+
+# Pruebas a ejecutar en el cliente
+Resolucion directa (nombres → IPs)
+dig maestro.empresa.local
+dig esclavo.empresa.local
+dig cliente.empresa.local
+dig www.empresa.local   # (CNAME hacia maestro.empresa.local)
+dig ftp.empresa.local   # (CNAME hacia maestro.empresa.local)
+
+Resolución inversa (IPs → nombres)
+dig -x 192.168.50.3
+dig -x 192.168.50.4
+dig -x 192.168.50.2
+
+
+
+
