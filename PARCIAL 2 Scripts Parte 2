@@ -1,1 +1,43 @@
+Previamente se tenia configurado la VM2 Y VM3
 
+Tengo las siguientes maquinas: 
+VM2: DNS secundario IP 192.168.50.4 
+VM3: DNS maestro IP 192.168.50.3 
+VM1: Firewall (UFW) IP 192.168.50.6 
+PC: seria el anfitrion
+
+1)Configuración del Firewall (VM1 - UFW)
+sudo vim /etc/ufw/before.rules
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+# Redirigir peticiones DNS (UDP y TCP puerto 53) hacia el DNS Maestro (192.168.50.3)
+-A PREROUTING -p udp --dport 53 -j DNAT --to-destination 192.168.50.3
+-A PREROUTING -p tcp --dport 53 -j DNAT --to-destination 192.168.50.3
+
+# (Opcional) Balanceo hacia el DNS Secundario también:
+# -A PREROUTING -p udp --dport 53 -m statistic --mode random --probability 0.5 -j DNAT --to-destination 192.168.50.4
+# -A PREROUTING -p tcp --dport 53 -m statistic --mode random --probability 0.5 -j DNAT --to-destination 192.168.50.4
+
+COMMIT
+
+2)Habilitar reenvío en el Kernel
+sudo vim /etc/ufw/sysctl.conf
+net.ipv4.ip_forward=1
+
+3)Política de UFW
+sudo vim /etc/default/ufw
+DEFAULT_FORWARD_POLICY="ACCEPT"
+
+
+4)Reglas UFW
+# Permitir tráfico DNS
+sudo ufw allow in on enp0s8 to any port 53 proto udp
+sudo ufw allow in on enp0s8 to any port 53 proto tcp
+
+# Permitir reenvío a las VMs internas
+sudo ufw route allow in on enp0s8 out on enp0s8 to 192.168.50.3 port 53 proto udp
+sudo ufw route allow in on enp0s8 out on enp0s8 to 192.168.50.3 port 53 proto tcp
+sudo ufw route allow in on enp0s8 out on enp0s8 to 192.168.50.4 port 53 proto udp
+sudo ufw route allow in on enp0s8 out on enp0s8 to 192.168.50.4 port 53 proto tcp
