@@ -1,2 +1,115 @@
-Scripts Parte 1
+Sevidor1: 192.168.50.3 (UFW)
+
+HABILITAMOS UFM
+sudo ufw enable
+(Activa el firewall UFW (Uncomplicated Firewall). A partir de este momento todas las reglas empiezan a aplicarse.)
+
+PERMITIMOS CONEXIONES NECESARIAS
+sudo ufw allow ssh
+(Permite que puedas seguir administrando la máquina vía SSH sin que te bloquee. (si no haces esto, te puedes quedar sin acceso remoto))
+
+sudo ufw allow 21/tcp
+(Abre el puerto 21 (FTP) para que el cliente FileZilla pueda conectarse.)
+
+CONFIGURAR REGLAS NAT DE REENVIO A 192.168.50.4 (VSFTP SEGURO)
+sudo vim /etc/ufw/before.rules
+CONFIGURACIÓN:
+# >>> nat forwarding for port 80 to 192.168.50.4
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+# Redirigir todo el tráfico TCP entrante al puerto 21 en el maestro
+# hacia la IP interna 192.168.50.4 puerto 21.
+-A PREROUTING -p tcp --dport 21 -j DNAT --to-destination 192.168.50.4:21
+
+# Asegurar que la respuesta salga con la IP correcta (masquerade)
+-A POSTROUTING -j MASQUERADE
+
+COMMIT
+# <<< nat forwarding for port 21 to 192.168.50.4
+
+HABILITAR FORWARDING EN EL KERNEL: "HABILITA EL REENVIO DE PAQUETES"
+sudo vim /etc/ufw/sysctl.conf
+DESCOMENTAR: 
+"net.ipv4.ip_forward=1"
+
+ARCHIVO DE CONFIGURACIÓN: "DESBLOQUEAR EL REENVIO DE PAQUETES ENTRE INTERFACES"
+sudo vim /etc/default/ufw
+CONFIGURACIÓN:
+DEFAULT_FORWARD_POLICY="ACCEPT"
+
+REINICIAR FIREWALL
+sudo ufw disable && sudo ufw enable
+
+ESTADO DEL UFW
+sudo ufw status
+
+
+Servidor2: servidor-esclavo 192.168.50.4 (VSFTP SEGURO)
+
+INSTALAMOS VSFTPD
+sudo apt update
+sudo apt install vsftpd -y
+(vsftpd es el servicio FTP seguro. Soporta TLS/SSL para cifrar las transferencias.)
+
+CREAR CERTICADOS TLS/SSL
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout /etc/ssl/private/vsftpd.pem \
+-out /etc/ssl/private/vsftpd.pem
+(Se guarda en /etc/ssl/private/vsftpd.pem.)
+CONFIGURACIÓN:
+Country Name (2 letter code) [AU]:CO
+State or Province Name (full name) [Some-State]:Valle del Cauca
+Locality Name (eg, city) []:Cali
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:UAO
+Organizational Unit Name (eg, section) []:Ingenieria
+Common Name (e.g. server FQDN or YOUR name) []:servidor1ejemplo.com
+Email Address []:kelvin.martinez@uao.edu.co
+
+CONFIGURAR VSFTPD
+sudo vim /etc/vsftpd.conf
+CONFIGURACIÓN:
+listen=YES
+listen_ipv6=NO
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+chroot_local_user=YES
+ssl_enable=YES
+rsa_cert_file=/etc/ssl/private/vsftpd.pem
+rsa_private_key_file=/etc/ssl/private/vsftpd.pem
+force_local_data_ssl=YES
+force_local_logins_ssl=YES
+ssl_tlsv1=YES
+ssl_sslv2=NO
+ssl_sslv3=NO
+require_ssl_reuse=NO
+Explicación:
+(ssl_enable=YES → activa FTPS.
+force_local_data_ssl=YES y force_local_logins_ssl=YES → obligan a que todo el tráfico (credenciales y archivos) se cifre)
+
+REINICIAMOS EL SERVICIO
+sudo systemctl restart vsftpd
+sudo systemctl enable vsftpd
+
+PAGINA PERSONALIZADA
+sudo vim /var/www/html/index.html
+
+CREAMOS UN USUARIO
+sudo adduser ftpuser
+Usuario: ftpuser
+Clave: Admin1234
+CONFIGURACIÓN:
+Full Name []: Kelvin Martinez
+        Room Number []: 604
+        Work Phone []: 3112539349
+        Home Phone []: 4201125
+        Other []:
+
+DAR PERMISOS A LA CARPETA HOME
+sudo chown ftpuser:ftpuser /home/ftpuser
+
+
+
 
