@@ -1,1 +1,23 @@
+DNS sobre TLS
+
+1. Verificar estado de systemd-resolved
+systemctl status systemd-resolved
+
+2. Editar archivo de configuración de systemd-resolved
+sudo vim /etc/systemd/resolved.conf
+CONFIGURACIÓN:
+[Resolve]
+DNS=8.8.8.8#dns.google 8.8.4.4#dns.google
+DNSOverTLS=yes
+
+3. Reiniciar el servicio para aplicar los cambios:
+sudo systemctl restart systemd-resolved
+
+4. Verificar configuración
+resolvectl status
+
+5. Consulta de prueba:
+resolvectl query www.google.com
+dig @127.0.0.53 www.google.com
+
 
